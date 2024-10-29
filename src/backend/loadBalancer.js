@@ -3,20 +3,24 @@ const axios = require('axios');
 const path = require('path');
 const cors = require('cors');
 const { connectToDatabase, getCollection, ObjectId } = require('../database/db');
-const authRouter = require('./auth');
+const { authRouter, authenticateToken } = require('./auth');
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 const servers = ['http://127.0.0.1:3001', 'http://127.0.0.1:3002', 'http://127.0.0.1:3003'];
 
-async function getLeastLoadedServer() {
+async function getLeastLoadedServer(req) {
     let minLoad = Infinity;
     let selectedServer = null;
 
     for (const server of servers) {
         try {
-            const response = await axios.get(`${server}/load`);
+            const response = await axios.get(`${server}/load`, {
+                headers: {
+                    'Authorization': req.headers.authorization
+                }
+            });
             if (response.data < minLoad) {
                 minLoad = response.data;
                 selectedServer = server;
@@ -25,26 +29,29 @@ async function getLeastLoadedServer() {
             console.error(`Error pinging server ${server}:`, error);
         }
     }
-
     return selectedServer;
 }
 
-async function reassignAwaitingTasks() {
+async function reassignAwaitingTasks(req) {
     const collection = getCollection();
     const awaitingTasks = await collection.find({ status: 'awaiting' }).toArray();
 
     for (const task of awaitingTasks) {
-        const server = await getLeastLoadedServer();
+        const server = await getLeastLoadedServer(req);
         if (server) {
             await collection.updateOne({ _id: task._id }, { $set: { server } });
         }
     }
 }
 
-app.get('/server-loads', async (req, res) => {
+app.get('/server-loads', authenticateToken, async (req, res) => {
     const serverLoads = await Promise.all(servers.map(async (server) => {
         try {
-            const response = await axios.get(`${server}/load`);
+            const response = await axios.get(`${server}/load`, {
+                headers: {
+                    'Authorization': req.headers.authorization
+                }
+            });
             return { server, load: response.data };
         } catch (error) {
             console.error(`Error pinging server ${server}:`, error);
@@ -54,10 +61,9 @@ app.get('/server-loads', async (req, res) => {
     res.json(serverLoads);
 });
 
-app.use('/auth', authRouter);
-
-app.post('/integrate', async (req, res) => {
-    const { userId, function: func, interval, points } = req.body;
+app.post('/integrate', authenticateToken, async (req, res) => {
+    const { function: func, interval, points } = req.body;
+    const userId = req.user.userId; // Extract user ID from the token
     const collection = getCollection();
 
     if (!collection) {
@@ -69,7 +75,7 @@ app.post('/integrate', async (req, res) => {
         return res.json({ message: 'You have more than 10 ongoing tasks. Please wait for some tasks to complete.' });
     }
 
-    const server = await getLeastLoadedServer();
+    const server = await getLeastLoadedServer(req);
     if (!server) {
         return res.status(500).send('No available servers');
     }
@@ -88,25 +94,25 @@ app.post('/integrate', async (req, res) => {
     res.json({ requestId });
 });
 
-app.get('/tasks', async (req, res) => {
+app.get('/tasks', authenticateToken, async (req, res) => {
+    const userId = req.user.userId; // Extract user ID from the token
     const collection = getCollection();
-    if (!collection) {
-        return res.status(500).send('Database connection not established');
-    }
-    const tasks = await collection.find({}).toArray();
+    const tasks = await collection.find({ userId }).toArray();
     res.json(tasks);
 });
 
-app.post('/cancel/:id', async (req, res) => {
+app.post('/cancel/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const collection = getCollection();
     if (!collection) {
         return res.status(500).send('Database connection not established');
     }
     await collection.updateOne({ _id: new ObjectId(id) }, { $set: { status: 'cancelled' } });
-    await reassignAwaitingTasks();
+    await reassignAwaitingTasks(req);
     res.sendStatus(200);
 });
+
+app.use('/auth', authRouter);
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 

@@ -1,23 +1,12 @@
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const { connectToDatabase, getCollection, ObjectId } = require('../database/db');
+const { authenticateToken } = require('./auth');
+
 const app = express();
 app.use(express.json());
 
-const client = new MongoClient('mongodb://localhost:27017', { useUnifiedTopology: true });
-let db;
-let collection;
-
-async function connectToDatabase() {
-    if (!db) {
-        await client.connect();
-        db = client.db('integration');
-        collection = db.collection('requests');
-        console.log('Connected to MongoDB');
-    }
-    return collection;
-}
-
-async function calculateLoad(collection, serverUrl) {
+async function calculateLoad(serverUrl) {
+    let collection = await getCollection();
     const tasks = await collection.find({ 
         server: serverUrl, 
         status: { $in: ['awaiting', 'in-progress'] } 
@@ -34,16 +23,9 @@ async function calculateLoad(collection, serverUrl) {
     return totalLoad;
 }
 
-app.get('/tasks', async (req, res) => {
-    const collection = await connectToDatabase();
-    const tasks = await collection.find({}).toArray();
-    res.json(tasks);
-});
-
-app.get('/load', async (req, res) => {
+app.get('/load', authenticateToken, async (req, res) => {
     try {
-        const collection = await connectToDatabase();
-        const load = await calculateLoad(collection, `http://127.0.0.1:${port}`);
+        const load = await calculateLoad(`http://127.0.0.1:${port}`);
         res.json(load);
     } catch (error) {
         console.error('Error getting load', error);
@@ -51,8 +33,8 @@ app.get('/load', async (req, res) => {
     }
 });
 
-app.get('/progress/:id', async (req, res) => {
-    const collection = await connectToDatabase();
+app.get('/progress/:id', authenticateToken, async (req, res) => {
+    let collection = await getCollection();
     const request = await collection.findOne({ _id: new ObjectId(req.params.id) });
     res.json({ progress: request.progress });
 });
@@ -72,7 +54,6 @@ async function integrate(func, interval, points, collection, requestId) {
 
         if (i % Math.floor(n / 100) === 0) {
             await collection.updateOne({ _id: requestId }, { $set: { progress } });
-            console.log('updated server load')
         }
 
         const task = await collection.findOne({ _id: requestId });
@@ -85,12 +66,12 @@ async function integrate(func, interval, points, collection, requestId) {
     return sum * h;
 }
 
-
 function evaluateFunction(func, x) {
-    return Function('x', `return (${func})`)(x);
+    return eval(func);
 }
 
-async function pickNextTask(collection) {
+async function pickNextTask() {
+    let collection = getCollection();
     console.log('Picking next task...');
     const nextTask = await collection.findOneAndUpdate(
         { status: 'awaiting', server: `http://127.0.0.1:${port}` },
@@ -105,20 +86,20 @@ async function pickNextTask(collection) {
                 if (result !== null) {
                     collection.updateOne({ _id: requestId }, { $set: { result, completedAt: new Date() } });
                 }
-                setTimeout(() => pickNextTask(collection), 500);
+                setTimeout(() => pickNextTask(), 500);
             })
             .catch(error => {
                 console.error('Error processing next task', error);
-                setTimeout(() => pickNextTask(collection), 500);
+                setTimeout(() => pickNextTask(), 500);
             });
     } else {
-        setTimeout(() => pickNextTask(collection), 500);
+        setTimeout(() => pickNextTask(), 500);
     }
 }
 
 const port = process.argv[2] || 3001;
 app.listen(port, async () => {
+    await connectToDatabase();
     console.log(`Server running on port ${port}`);
-    const collection = await connectToDatabase();
-    pickNextTask(collection);
+    pickNextTask();
 });

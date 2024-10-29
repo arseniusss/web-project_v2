@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 
 const MainPage = () => {
+    const { auth } = useContext(AuthContext);
+
     const [userId, setUserId] = useState('');
     const [func, setFunc] = useState('');
     const [lowerBound, setLowerBound] = useState('');
@@ -15,7 +18,10 @@ const MainPage = () => {
         const interval = `${lowerBound},${upperBound}`;
         const response = await fetch('http://localhost:5000/integrate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${auth.accessToken}`
+            },
             body: JSON.stringify({ userId, function: func, interval, points })
         });
 
@@ -29,16 +35,27 @@ const MainPage = () => {
     };
 
     const fetchTasks = async () => {
-        const response = await fetch('http://localhost:5000/tasks');
-        const tasks = await response.json();
-        setTasks(tasks);
+        try {
+            const response = await fetch('http://localhost:5000/tasks', {
+                headers: {
+                    'Authorization': `Bearer ${auth.accessToken}`
+                }
+            });
+            const data = await response.json();
+            setTasks(data);
+        } catch (error) {
+            console.error('Error fetching tasks:', error);
+        }
     };
 
     const fetchServerLoads = async () => {
         try {
-            const response = await fetch('http://localhost:5000/server-loads');
+            const response = await fetch('http://localhost:5000/server-loads', {
+                headers: {
+                    'Authorization': `Bearer ${auth.accessToken}`
+                }
+            });
             const data = await response.json();
-            console.log('Fetched server loads:', data); // Debug log
             setServerLoads(data);
         } catch (error) {
             console.error('Error fetching server loads:', error);
@@ -46,7 +63,12 @@ const MainPage = () => {
     };
 
     const cancelTask = async (taskId) => {
-        await fetch(`http://localhost:5000/cancel/${taskId}`, { method: 'POST' });
+        await fetch(`http://localhost:5000/cancel/${taskId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${auth.accessToken}`
+            }
+        });
         fetchTasks();
     };
 
@@ -62,6 +84,8 @@ const MainPage = () => {
 
     return (
         <div>
+            <h1>Welcome, {auth.username}</h1>
+            <h1>{auth.isadmin}</h1>
             <form onSubmit={handleSubmit}>
                 <div>
                     <label>User ID:</label>
