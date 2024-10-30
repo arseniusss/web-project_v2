@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import '../Table.css';
+import '../ServerLoads.css';
+import '../App.css';
 
 const MainPage = () => {
     const { auth } = useContext(AuthContext);
 
-    const [userId, setUserId] = useState('');
     const [func, setFunc] = useState('');
     const [lowerBound, setLowerBound] = useState('');
     const [upperBound, setUpperBound] = useState('');
@@ -12,9 +14,54 @@ const MainPage = () => {
     const [tasks, setTasks] = useState([]);
     const [serverLoads, setServerLoads] = useState([]);
     const [message, setMessage] = useState('');
+    const [errors, setErrors] = useState({});
+    const [currentTab, setCurrentTab] = useState('integrate');
+
+    const validate = () => {
+        const errors = {};
+        if (!func) {
+            errors.func = 'Function is required';
+        } else {
+            try {
+                new Function('x', `return ${func}`);
+            } catch {
+                errors.func = 'Function must be a valid function of x';
+            }
+        }
+
+        if (!lowerBound) {
+            errors.lowerBound = 'Lower bound is required';
+        } else if (isNaN(lowerBound)) {
+            errors.lowerBound = 'Lower bound must be a number';
+        }
+
+        if (!upperBound) {
+            errors.upperBound = 'Upper bound is required';
+        } else if (isNaN(upperBound)) {
+            errors.upperBound = 'Upper bound must be a number';
+        }
+
+        if (Number(lowerBound) >= Number(upperBound)) {
+            errors.bounds = 'Lower bound must be less than upper bound';
+        }
+
+        if (!points) {
+            errors.points = 'Points are required';
+        } else if (isNaN(points) || points > 100000 || points < 0) {
+            errors.points = 'Points must be a number between 1 and 100000';
+        }
+
+        return errors;
+    };
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        const validationErrors = validate();
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+        setErrors({});
         const interval = `${lowerBound},${upperBound}`;
         const response = await fetch('http://localhost:5000/integrate', {
             method: 'POST',
@@ -22,7 +69,7 @@ const MainPage = () => {
                 'Content-Type': 'application/json', 
                 'Authorization': `Bearer ${auth.accessToken}`
             },
-            body: JSON.stringify({ userId, function: func, interval, points })
+            body: JSON.stringify({ function: func, interval, points })
         });
 
         const data = await response.json();
@@ -82,88 +129,123 @@ const MainPage = () => {
         return () => clearInterval(interval);
     }, [auth]);
 
+    const getLoadClass = (load) => {
+        if (load === null) return 'load-critical';
+        if (load < 150000) return 'load-low';
+        if (load <= 350000) return 'load-medium';
+        if (load < 400000) return 'load-high';
+        return 'load-critical';
+    };
+
     return (
-        <div>
+        <div className="main-page">
+            <nav className="nav-container">
+                <button className={`nav-button ${currentTab === 'integrate' ? 'active' : ''}`} onClick={() => setCurrentTab('integrate')}>Integrate</button>
+                <button className={`nav-button ${currentTab === 'admin' ? 'active' : ''}`} onClick={() => setCurrentTab('admin')}>Admin Panel</button>
+            </nav>
             <h1>Welcome, {auth.username}</h1>
-            <h1>{auth.isadmin}</h1>
-            <form onSubmit={handleSubmit}>
-                <div>
-                    <label>User ID:</label>
-                    <input type="text" value={userId} onChange={(e) => setUserId(e.target.value)} />
-                </div>
-                <div>
-                    <label>Function:</label>
-                    <input type="text" value={func} onChange={(e) => setFunc(e.target.value)} />
-                </div>
-                <div>
-                    <label>Lower Bound:</label>
-                    <input type="text" value={lowerBound} onChange={(e) => setLowerBound(e.target.value)} />
-                </div>
-                <div>
-                    <label>Upper Bound:</label>
-                    <input type="text" value={upperBound} onChange={(e) => setUpperBound(e.target.value)} />
-                </div>
-                <div>
-                    <label>Points:</label>
-                    <input type="text" value={points} onChange={(e) => setPoints(e.target.value)} />
-                </div>
-                <button type="submit">Submit</button>
-            </form>
-            {message && <p>{message}</p>}
-            <button onClick={fetchTasks}>Refresh Table</button>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>User ID</th>
-                        <th>Function</th>
-                        <th>Interval</th>
-                        <th>Points</th>
-                        <th>Status</th>
-                        <th>Progress</th>
-                        <th>Result</th>
-                        <th>Server</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {tasks && tasks.map(task => (
-                        <tr key={task._id}>
-                            <td>{task._id}</td>
-                            <td>{task.userId}</td>
-                            <td>{task.function}</td>
-                            <td>{task.interval}</td>
-                            <td>{task.points}</td>
-                            <td>{task.status}</td>
-                            <td>{task.progress}%</td>
-                            <td>{task.result || ''}</td>
-                            <td>{task.server}</td>
-                            <td>
-                                {task.status === 'in-progress' && (
-                                    <button onClick={() => cancelTask(task._id)}>Cancel</button>
-                                )}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <h2>Server Loads</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Server</th>
-                        <th>Load</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {serverLoads && serverLoads.map((server, index) => (
-                        <tr key={index}>
-                            <td>{server.server}</td>
-                            <td>{server.load}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
+            <div className="content-container">
+                {currentTab === 'integrate' && (
+                    <div className="integrate-section">
+                        <form onSubmit={handleSubmit} className={`main-form ${message ? 'has-error' : ''}`}>
+                            <h2>Function Integration</h2>
+                            <div className={`form-group ${errors.func ? 'error' : ''}`}>
+                                <label>Function:</label>
+                                <input type="text" value={func} onChange={(e) => setFunc(e.target.value)} />
+                                {errors.func && <p className="error-text">{errors.func}</p>}
+                            </div>
+                            <div className={`form-group ${errors.lowerBound || errors.bounds ? 'error' : ''}`}>
+                                <label>Lower Bound:</label>
+                                <input type="text" value={lowerBound} onChange={(e) => setLowerBound(e.target.value)} />
+                                {errors.lowerBound && <p className="error-text">{errors.lowerBound}</p>}
+                            </div>
+                            <div className={`form-group ${errors.upperBound || errors.bounds ? 'error' : ''}`}>
+                                <label>Upper Bound:</label>
+                                <input type="text" value={upperBound} onChange={(e) => setUpperBound(e.target.value)} />
+                                {errors.upperBound && <p className="error-text">{errors.upperBound}</p>}
+                                {errors.bounds && <p className="error-text">{errors.bounds}</p>}
+                            </div>
+                            <div className={`form-group ${errors.points ? 'error' : ''}`}>
+                                <label>Points:</label>
+                                <input type="text" value={points} onChange={(e) => setPoints(e.target.value)} />
+                                {errors.points && <p className="error-text">{errors.points}</p>}
+                            </div>
+                            <button type="submit">Submit</button>
+                        </form>
+                        {message && <p className="error-message">{message}</p>}
+                        <div className="table-container">
+                            <h2>Your requests</h2>
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User ID</th>
+                                        <th>Function</th>
+                                        <th>Interval</th>
+                                        <th>Points</th>
+                                        <th>Status</th>
+                                        <th>Progress</th>
+                                        <th>Result</th>
+                                        <th>Server</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tasks && tasks.map(task => (
+                                        <tr key={task._id}>
+                                            <td>{task._id}</td>
+                                            <td>{task.userId}</td>
+                                            <td>{task.function}</td>
+                                            <td>{task.interval}</td>
+                                            <td>{task.points}</td>
+                                            <td>
+                                                <span className={`status-bubble status-${task.status}`}>
+                                                    {task.status}
+                                                </span>
+                                            </td>
+                                            <td>{task.progress}%</td>
+                                            <td>{task.result || ''}</td>
+                                            <td>{task.server}</td>
+                                            <td>
+                                                {task.status === 'in-progress' && (
+                                                    <button onClick={() => cancelTask(task._id)}>Cancel</button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+                {currentTab === 'admin' && (
+                    <div className="admin-section">
+                        <div className="server-loads-container">
+                            <h2>Server Loads</h2>
+                            <table className="server-loads-table">
+                                <thead>
+                                    <tr>
+                                        <th>Server</th>
+                                        <th>Load</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {serverLoads && serverLoads.map((server, index) => (
+                                        <tr key={index}>
+                                            <td>{server.server}</td>
+                                            <td>
+                                                <span className={`load-status ${getLoadClass(server.load)}`}>
+                                                    {server.load || 'N/A'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

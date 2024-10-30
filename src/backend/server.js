@@ -55,7 +55,8 @@ async function integrate(func, interval, points, collection, requestId) {
         if (i % Math.floor(n / 100) === 0) {
             await collection.updateOne({ _id: requestId }, { $set: { progress } });
         }
-
+        
+        // перемістити
         const task = await collection.findOne({ _id: requestId });
         if (task.status === 'cancelled') {
             return null;

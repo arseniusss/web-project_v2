@@ -95,7 +95,7 @@ app.post('/integrate', authenticateToken, async (req, res) => {
 });
 
 app.get('/tasks', authenticateToken, async (req, res) => {
-    const userId = req.user.userId; // Extract user ID from the token
+    const userId = req.user.userId;
     const collection = getCollection();
     const tasks = await collection.find({ userId }).toArray();
     res.json(tasks);

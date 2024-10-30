@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
                 refreshAccessToken();
                 console.log('Trying to refresh token')
             }
-        }, 45 * 1000);
+        }, 0.9 * 60 * 1000);
         return () => clearInterval(interval);
     }, [auth.refreshToken]);
 
