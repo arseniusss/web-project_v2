@@ -1,9 +1,13 @@
 const express = require('express');
+const { Worker } = require('worker_threads');
+const path = require('path');
 const { connectToDatabase, getCollection, ObjectId } = require('../database/db');
 const { authenticateToken } = require('./auth');
 
 const app = express();
 app.use(express.json());
+
+let activeTasks = 0;
 
 async function calculateLoad(serverUrl) {
     let collection = await getCollection();
@@ -39,62 +43,68 @@ app.get('/progress/:id', authenticateToken, async (req, res) => {
     res.json({ progress: request.progress });
 });
 
-async function integrate(func, interval, points, collection, requestId) {
-    console.log('Integrating...');
-    const [a, b] = interval.split(',').map(Number);
-    const n = parseInt(points);
-    const h = (b - a) / n;
-
-    let sum = 0.5 * (evaluateFunction(func, a) + evaluateFunction(func, b));
-    let progress = 0;
-
-    for (let i = 1; i < n; i++) {
-        sum += evaluateFunction(func, a + i * h);
-        progress = Math.floor((i / n) * 100);
-
-        if (i % Math.floor(n / 100) === 0) {
-            await collection.updateOne({ _id: requestId }, { $set: { progress } });
-        }
-        
-        // перемістити
-        const task = await collection.findOne({ _id: requestId });
-        if (task.status === 'cancelled') {
-            return null;
-        }
-    }
-
-    await collection.updateOne({ _id: requestId }, { $set: { progress: 100, status: 'completed', completedAt: new Date(), result: sum * h } });
-    return sum * h;
-}
-
 function evaluateFunction(func, x) {
     return eval(func);
 }
 
-async function pickNextTask() {
-    let collection = getCollection();
-    console.log('Picking next task...');
-    const nextTask = await collection.findOneAndUpdate(
-        { status: 'awaiting', server: `http://127.0.0.1:${port}` },
-        { $set: { status: 'in-progress' } },
-        { sort: { createdAt: 1 } }
-    );
+async function pickNextTasks() {
+    let collection = await getCollection();
+    console.log(`active tasks: ${activeTasks}`);
 
-    if (nextTask.value) {
-        const { function: func, interval, points, _id: requestId } = nextTask.value;
-        integrate(func, interval, points, collection, requestId)
-            .then(result => {
-                if (result !== null) {
-                    collection.updateOne({ _id: requestId }, { $set: { result, completedAt: new Date() } });
-                }
-                setTimeout(() => pickNextTask(), 500);
-            })
-            .catch(error => {
-                console.error('Error processing next task', error);
-                setTimeout(() => pickNextTask(), 500);
-            });
-    } else {
-        setTimeout(() => pickNextTask(), 500);
+    if (activeTasks >= 3) {
+        setTimeout(() => pickNextTasks(), 500);
+        return;
+    }
+
+    for (let i = 0; i < 3 - activeTasks; i++) {
+        const task = await collection.findOneAndUpdate(
+            { status: 'awaiting', server: `http://127.0.0.1:${port}` },
+            { $set: { status: 'in-progress', startedAt: new Date() } },
+            { sort: { createdAt: 1 }, returnDocument: 'after' }
+        );
+
+        if (!task.value) {
+            break;
+        }
+
+        activeTasks++;
+
+        const { function: func, interval, points, _id: requestId } = task.value;
+        const worker = new Worker(path.resolve(__dirname, 'worker.js'), {
+            workerData: { func, interval, points, requestId: requestId.toString() }
+        });
+
+        worker.on('message', async (result) => {
+            if (result !== null) {
+                await collection.updateOne({ _id: new ObjectId(requestId) }, { $set: { result, completedAt: new Date() } });
+            }
+            activeTasks--;
+            pickNextTasks();
+        });
+
+        worker.on('error', async (error) => {
+            console.error('Worker error:', error);
+            activeTasks--;
+            pickNextTasks();
+        });
+
+        worker.on('exit', async (code) => {
+            if (code !== 0) {
+                console.error(`Worker stopped with exit code ${code}`);
+            }
+            activeTasks--;
+
+            if (activeTasks > 3) {
+                await collection.updateOne({ _id: new ObjectId(requestId) }, { $set: { status: 'awaiting' } });
+                console.log(`Reverted task ${requestId} to awaiting`);
+            }
+
+            pickNextTasks();
+        });
+    }
+
+    if (activeTasks < 3) {
+        setTimeout(() => pickNextTasks(), 500);
     }
 }
 
@@ -102,5 +112,5 @@ const port = process.argv[2] || 3001;
 app.listen(port, async () => {
     await connectToDatabase();
     console.log(`Server running on port ${port}`);
-    pickNextTask();
+    pickNextTasks();
 });

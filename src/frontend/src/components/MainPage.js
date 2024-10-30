@@ -48,8 +48,8 @@ const MainPage = () => {
 
         if (!points) {
             errors.points = 'Points are required';
-        } else if (isNaN(points) || points > 100000 || points < 0) {
-            errors.points = 'Points must be a number between 1 and 100000';
+        } else if (isNaN(points) || points > 1000000000 || points < 0) {
+            errors.points = 'Points must be a number between 1 and 1000000000';
         }
 
         return errors;
@@ -156,9 +156,9 @@ const MainPage = () => {
 
     const getLoadClass = (load) => {
         if (load === null) return 'load-critical';
-        if (load < 150000) return 'load-low';
-        if (load <= 350000) return 'load-medium';
-        if (load < 400000) return 'load-high';
+        if (load < 1500000000) return 'load-low';
+        if (load <= 3000000000) return 'load-medium';
+        if (load < 450000000) return 'load-high';
         return 'load-critical';
     };
 

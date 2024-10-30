@@ -63,7 +63,7 @@ app.get('/server-loads', authenticateToken, async (req, res) => {
 
 app.post('/integrate', authenticateToken, async (req, res) => {
     const { function: func, interval, points } = req.body;
-    const userId = req.user.userId; // Extract user ID from the token
+    const userId = req.user.userId;
     const collection = getCollection();
 
     if (!collection) {
