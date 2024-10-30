@@ -80,7 +80,7 @@ const MainPage = () => {
             fetchServerLoads();
         }, 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [auth]);
 
     return (
         <div>

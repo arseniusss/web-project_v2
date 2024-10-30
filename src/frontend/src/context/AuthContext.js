@@ -60,13 +60,14 @@ export const AuthProvider = ({ children }) => {
         const interval = setInterval(() => {
             if (auth.refreshToken) {
                 refreshAccessToken();
+                console.log('Trying to refresh token')
             }
-        }, 14 * 60 * 1000); // Refresh token every 14 minutes
+        }, 45 * 1000);
         return () => clearInterval(interval);
     }, [auth.refreshToken]);
 
     return (
-        <AuthContext.Provider value={{ auth, isAuthenticated, login, signup, logout }}>
+        <AuthContext.Provider value={{ auth, isAuthenticated, login, signup, logout, refreshAccessToken }}>
             {children}
         </AuthContext.Provider>
     );
