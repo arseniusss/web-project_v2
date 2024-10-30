@@ -7,29 +7,26 @@ export const AuthProvider = ({ children }) => {
     const [auth, setAuth] = useState({
         accessToken: localStorage.getItem('accessToken'),
         refreshToken: localStorage.getItem('refreshToken'),
-        userId: localStorage.getItem('userId'),
-        username: localStorage.getItem('username')
+        isAdmin: false
     });
     const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('accessToken'));
 
     const login = async (username, password) => {
         try {
             const { data } = await axios.post('http://localhost:5000/auth/login', { username, password });
-            setAuth({ ...data, username, userId: data.userId });
+            setAuth({ accessToken: data.accessToken, refreshToken: data.refreshToken, isAdmin: data.isAdmin });
             setIsAuthenticated(true);
             localStorage.setItem('accessToken', data.accessToken);
             localStorage.setItem('refreshToken', data.refreshToken);
-            localStorage.setItem('username', username);
-            localStorage.setItem('userId', data.userId);
         } catch (error) {
             console.error('Login failed', error);
             throw error;
         }
     };
 
-    const signup = async (username, password) => {
+    const signup = async (username, password, isAdmin) => {
         try {
-            await axios.post('http://localhost:5000/auth/signup', { username, password });
+            await axios.post('http://localhost:5000/auth/signup', { username, password, isAdmin });
         } catch (error) {
             console.error('Signup failed', error);
             throw error;
@@ -37,12 +34,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
-        setAuth({ accessToken: null, refreshToken: null, userId: null, username: null });
+        setAuth({ accessToken: null, refreshToken: null, isAdmin: false });
         setIsAuthenticated(false);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('username');
-        localStorage.removeItem('userId');
     };
 
     const refreshAccessToken = async () => {
@@ -60,7 +55,6 @@ export const AuthProvider = ({ children }) => {
         const interval = setInterval(() => {
             if (auth.refreshToken) {
                 refreshAccessToken();
-                console.log('Trying to refresh token')
             }
         }, 0.9 * 60 * 1000);
         return () => clearInterval(interval);

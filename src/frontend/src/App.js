@@ -6,8 +6,8 @@ import Signup from './components/Signup';
 import MainPage from './components/MainPage';
 
 const App = () => {
-    const { isAuthenticated } = useContext(AuthContext);
-    console.log(isAuthenticated);
+    const { isAuthenticated, auth } = useContext(AuthContext);
+
     useEffect(() => {
         // This effect will run whenever isAuthenticated changes
     }, [isAuthenticated]);

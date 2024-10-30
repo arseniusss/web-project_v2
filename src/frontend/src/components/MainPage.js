@@ -12,6 +12,7 @@ const MainPage = () => {
     const [upperBound, setUpperBound] = useState('');
     const [points, setPoints] = useState('');
     const [tasks, setTasks] = useState([]);
+    const [allTasks, setAllTasks] = useState([]);
     const [serverLoads, setServerLoads] = useState([]);
     const [message, setMessage] = useState('');
     const [errors, setErrors] = useState({});
@@ -95,6 +96,20 @@ const MainPage = () => {
         }
     };
 
+    const fetchAllTasks = async () => {
+        try {
+            const response = await fetch('http://localhost:5000/all-tasks', {
+                headers: {
+                    'Authorization': `Bearer ${auth.accessToken}`
+                }
+            });
+            const data = await response.json();
+            setAllTasks(data);
+        } catch (error) {
+            console.error('Error fetching all tasks:', error);
+        }
+    };
+
     const fetchServerLoads = async () => {
         try {
             const response = await fetch('http://localhost:5000/server-loads', {
@@ -110,21 +125,31 @@ const MainPage = () => {
     };
 
     const cancelTask = async (taskId) => {
-        await fetch(`http://localhost:5000/cancel/${taskId}`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${auth.accessToken}`
-            }
-        });
-        fetchTasks();
+        try {
+            await fetch(`http://localhost:5000/cancel/${taskId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${auth.accessToken}`
+                }
+            });
+            fetchTasks();
+        } catch (error) {
+            console.error('Error cancelling task:', error);
+        }
     };
 
     useEffect(() => {
         fetchTasks();
         fetchServerLoads();
+        if (auth.isAdmin) {
+            fetchAllTasks();
+        }
         const interval = setInterval(() => {
             fetchTasks();
             fetchServerLoads();
+            if (auth.isAdmin) {
+                fetchAllTasks();
+            }
         }, 1000);
         return () => clearInterval(interval);
     }, [auth]);
@@ -141,9 +166,9 @@ const MainPage = () => {
         <div className="main-page">
             <nav className="nav-container">
                 <button className={`nav-button ${currentTab === 'integrate' ? 'active' : ''}`} onClick={() => setCurrentTab('integrate')}>Integrate</button>
-                <button className={`nav-button ${currentTab === 'admin' ? 'active' : ''}`} onClick={() => setCurrentTab('admin')}>Admin Panel</button>
+                {auth.isAdmin && <button className={`nav-button ${currentTab === 'admin' ? 'active' : ''}`} onClick={() => setCurrentTab('admin')}>Admin Panel</button>}
             </nav>
-            <h1>Welcome, {auth.username}</h1>
+            <h1>Welcome</h1>
             <div className="content-container">
                 {currentTab === 'integrate' && (
                     <div className="integrate-section">
@@ -179,7 +204,6 @@ const MainPage = () => {
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>User ID</th>
                                         <th>Function</th>
                                         <th>Interval</th>
                                         <th>Points</th>
@@ -194,7 +218,6 @@ const MainPage = () => {
                                     {tasks && tasks.map(task => (
                                         <tr key={task._id}>
                                             <td>{task._id}</td>
-                                            <td>{task.userId}</td>
                                             <td>{task.function}</td>
                                             <td>{task.interval}</td>
                                             <td>{task.points}</td>
@@ -218,7 +241,7 @@ const MainPage = () => {
                         </div>
                     </div>
                 )}
-                {currentTab === 'admin' && (
+                {currentTab === 'admin' && auth.isAdmin && (
                     <div className="admin-section">
                         <div className="server-loads-container">
                             <h2>Server Loads</h2>
@@ -238,6 +261,43 @@ const MainPage = () => {
                                                     {server.load || 'N/A'}
                                                 </span>
                                             </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="table-container">
+                            <h2>All Tasks</h2>
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User ID</th>
+                                        <th>Function</th>
+                                        <th>Interval</th>
+                                        <th>Points</th>
+                                        <th>Status</th>
+                                        <th>Progress</th>
+                                        <th>Result</th>
+                                        <th>Server</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {allTasks && allTasks.map(task => (
+                                        <tr key={task._id}>
+                                            <td>{task._id}</td>
+                                            <td>{task.userId}</td>
+                                            <td>{task.function}</td>
+                                            <td>{task.interval}</td>
+                                            <td>{task.points}</td>
+                                            <td>
+                                                <span className={`status-bubble status-${task.status}`}>
+                                                    {task.status}
+                                                </span>
+                                            </td>
+                                            <td>{task.progress}%</td>
+                                            <td>{task.result || ''}</td>
+                                            <td>{task.server}</td>
                                         </tr>
                                     ))}
                                 </tbody>

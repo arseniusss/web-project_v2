@@ -112,6 +112,15 @@ app.post('/cancel/:id', authenticateToken, async (req, res) => {
     res.sendStatus(200);
 });
 
+app.get('/all-tasks', authenticateToken, async (req, res) => {
+    if (!req.user.isAdmin) {
+        return res.sendStatus(403);
+    }
+    const collection = getCollection();
+    const tasks = await collection.find({}).toArray();
+    res.json(tasks);
+});
+
 app.use('/auth', authRouter);
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
