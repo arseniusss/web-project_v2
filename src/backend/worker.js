@@ -2,7 +2,7 @@ const { parentPort, workerData } = require('worker_threads');
 const { connectToDatabase, getCollection, ObjectId } = require('../database/db');
 
 async function integrate(func, interval, points, requestId) {
-    await connectToDatabase(); // Ensure the database connection is established
+    await connectToDatabase();
     const collection = await getCollection();
     console.log(`Integrating ${requestId}`);
     const [a, b] = interval.split(',').map(Number);

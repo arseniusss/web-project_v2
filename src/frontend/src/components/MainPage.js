@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import '../Table.css';
-import '../ServerLoads.css';
-import '../App.css';
+import '../styles/Table.css';
+import '../styles/ServerLoads.css';
+import '../styles/App.css';
 
 const MainPage = () => {
     const { auth } = useContext(AuthContext);

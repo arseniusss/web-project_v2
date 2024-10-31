@@ -1,6 +1,7 @@
 const { MongoClient, ObjectId } = require('mongodb');
+require('dotenv').config();
 
-const client = new MongoClient('mongodb://localhost:27017', { useUnifiedTopology: true });
+const client = new MongoClient(process.env.MONGODB_URI, { useUnifiedTopology: true });
 let db;
 let collection;
 let usersCollection;

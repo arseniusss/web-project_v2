@@ -49,7 +49,6 @@ function evaluateFunction(func, x) {
 
 async function pickNextTasks() {
     let collection = await getCollection();
-    console.log(`active tasks: ${activeTasks}`);
 
     if (activeTasks >= 3) {
         setTimeout(() => pickNextTasks(), 500);

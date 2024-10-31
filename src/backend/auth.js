@@ -3,8 +3,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const { getUsersCollection } = require('../database/db');
 const authRouter = express.Router();
+require('dotenv').config();
 
-const SECRET_KEY = 'someverysecretkeyshouldbemovedtodotenv';
+const SECRET_KEY = process.env.SECRET_KEY;
 
 authRouter.post('/signup', async (req, res) => {
     const { username, password, isAdmin } = req.body;
