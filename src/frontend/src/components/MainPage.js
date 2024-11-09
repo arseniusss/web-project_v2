@@ -4,23 +4,28 @@ import '../styles/Table.css';
 import '../styles/ServerLoads.css';
 import '../styles/App.css';
 
+const BACKEND_SERVER_URL = 'http://localhost:5000';
+
 const MainPage = () => {
     const { auth } = useContext(AuthContext);
 
     const [number, setNumber] = useState('');
     const [tasks, setTasks] = useState([]);
-    const [allTasks, setAllTasks] = useState([]);
     const [serverLoads, setServerLoads] = useState([]);
     const [message, setMessage] = useState('');
     const [errors, setErrors] = useState({});
     const [currentTab, setCurrentTab] = useState('tribonacci');
 
+    const MAX_NUMBER = 10000000;
     const validate = () => {
         const errors = {};
         if (!number) {
             errors.number = 'Number is required';
         } else if (isNaN(number) || number < 0) {
             errors.number = 'Number must be a non-negative integer';
+        }
+        if (number > MAX_NUMBER) {
+            errors.number = `Number must be less than ${MAX_NUMBER}`;
         }
         return errors;
     };
@@ -33,7 +38,7 @@ const MainPage = () => {
             return;
         }
         setErrors({});
-        const response = await fetch('http://localhost:5000/calculate_tribonacci', {
+        const response = await fetch(`${BACKEND_SERVER_URL}/calculate_tribonacci`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json', 
@@ -53,7 +58,7 @@ const MainPage = () => {
 
     const fetchTasks = async () => {
         try {
-            const response = await fetch('http://localhost:5000/tasks', {
+            const response = await fetch(`${BACKEND_SERVER_URL}/tasks`, {
                 headers: {
                     'Authorization': `Bearer ${auth.accessToken}`
                 }
@@ -65,23 +70,9 @@ const MainPage = () => {
         }
     };
 
-    const fetchAllTasks = async () => {
-        try {
-            const response = await fetch('http://localhost:5000/all-tasks', {
-                headers: {
-                    'Authorization': `Bearer ${auth.accessToken}`
-                }
-            });
-            const data = await response.json();
-            setAllTasks(data);
-        } catch (error) {
-            console.error('Error fetching all tasks:', error);
-        }
-    };
-
     const fetchServerLoads = async () => {
         try {
-            const response = await fetch('http://localhost:5000/server-loads', {
+            const response = await fetch(`${BACKEND_SERVER_URL}/server-loads`, {
                 headers: {
                     'Authorization': `Bearer ${auth.accessToken}`
                 }
@@ -95,7 +86,7 @@ const MainPage = () => {
 
     const cancelTask = async (taskId) => {
         try {
-            await fetch(`http://localhost:5000/cancel/${taskId}`, {
+            await fetch(`${BACKEND_SERVER_URL}/cancel-task/${taskId}`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${auth.accessToken}`
@@ -107,27 +98,27 @@ const MainPage = () => {
         }
     };
 
+
     useEffect(() => {
+        const FETCH_INTERVAL = 1000;
         fetchTasks();
-        fetchServerLoads();
         if (auth.isAdmin) {
-            fetchAllTasks();
+            fetchServerLoads();
         }
         const interval = setInterval(() => {
             fetchTasks();
-            fetchServerLoads();
             if (auth.isAdmin) {
-                fetchAllTasks();
+                fetchServerLoads();
             }
-        }, 1000);
+        }, FETCH_INTERVAL);
         return () => clearInterval(interval);
     }, [auth]);
 
-    const getLoadClass = (load) => {
+    const getLoadClassForCSS = (load) => {
         if (load === null) return 'load-critical';
-        if (load < 1500000000) return 'load-low';
-        if (load <= 3000000000) return 'load-medium';
-        if (load < 450000000) return 'load-high';
+        if (load <= MAX_NUMBER) return 'load-low';
+        if (load <= 2 * MAX_NUMBER) return 'load-medium';
+        if (load < 3 * MAX_NUMBER) return 'load-high';
         return 'load-critical';
     };
 
@@ -137,7 +128,6 @@ const MainPage = () => {
                 <button className={`nav-button ${currentTab === 'tribonacci' ? 'active' : ''}`} onClick={() => setCurrentTab('tribonacci')}>Calculate tribonacci</button>
                 {auth.isAdmin && <button className={`nav-button ${currentTab === 'admin' ? 'active' : ''}`} onClick={() => setCurrentTab('admin')}>Admin Panel</button>}
             </nav>
-            <h1>Welcome</h1>
             <div className="content-container">
                 {currentTab === 'tribonacci' && (
                     <div className="tribonacci-section">
@@ -206,43 +196,10 @@ const MainPage = () => {
                                         <tr key={index}>
                                             <td>{server.server}</td>
                                             <td>
-                                                <span className={`load-status ${getLoadClass(server.load)}`}>
+                                                <span className={`load-status ${getLoadClassForCSS(server.load)}`}>
                                                     {server.load || 'N/A'}
                                                 </span>
                                             </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div className="table-container">
-                            <h2>All Tasks</h2>
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>User ID</th>
-                                        <th>Number</th>
-                                        <th>Status</th>
-                                        <th>Progress</th>
-                                        <th>Result</th>
-                                        <th>Server</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {allTasks && allTasks.map(task => (
-                                        <tr key={task._id}>
-                                            <td>{task._id}</td>
-                                            <td>{task.userId}</td>
-                                            <td>{task.number}</td>
-                                            <td>
-                                                <span className={`status-bubble status-${task.status}`}>
-                                                    {task.status}
-                                                </span>
-                                            </td>
-                                            <td>{task.progress}%</td>
-                                            <td>{task.result || ''}</td>
-                                            <td>{task.server}</td>
                                         </tr>
                                     ))}
                                 </tbody>

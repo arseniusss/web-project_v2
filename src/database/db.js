@@ -3,24 +3,24 @@ require('dotenv').config();
 
 const client = new MongoClient(process.env.MONGODB_URI, { useUnifiedTopology: true });
 let db;
-let collection;
+let tasksCollection;
 let usersCollection;
 
 async function connectToDatabase() {
     if (!db) {
         await client.connect();
         db = client.db('tribonacci');
-        collection = db.collection('requests');
+        tasksCollection = db.collection('requests');
         usersCollection = db.collection('users');
         console.log('Connected to MongoDB');
     }
-    return { db, collection };
+    return { db, tasksCollection };
 }
 
 module.exports = {
     connectToDatabase,
     getDb: () => db,
-    getCollection: () => collection,
+    getTasksCollection: () => tasksCollection,
     getUsersCollection: () => usersCollection,
     ObjectId
 };
