@@ -9,7 +9,7 @@ let usersCollection;
 async function connectToDatabase() {
     if (!db) {
         await client.connect();
-        db = client.db('integration');
+        db = client.db('tribonacci');
         collection = db.collection('requests');
         usersCollection = db.collection('users');
         console.log('Connected to MongoDB');

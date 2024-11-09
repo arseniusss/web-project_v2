@@ -7,51 +7,21 @@ import '../styles/App.css';
 const MainPage = () => {
     const { auth } = useContext(AuthContext);
 
-    const [func, setFunc] = useState('');
-    const [lowerBound, setLowerBound] = useState('');
-    const [upperBound, setUpperBound] = useState('');
-    const [points, setPoints] = useState('');
+    const [number, setNumber] = useState('');
     const [tasks, setTasks] = useState([]);
     const [allTasks, setAllTasks] = useState([]);
     const [serverLoads, setServerLoads] = useState([]);
     const [message, setMessage] = useState('');
     const [errors, setErrors] = useState({});
-    const [currentTab, setCurrentTab] = useState('integrate');
+    const [currentTab, setCurrentTab] = useState('tribonacci');
 
     const validate = () => {
         const errors = {};
-        if (!func) {
-            errors.func = 'Function is required';
-        } else {
-            try {
-                new Function('x', `return ${func}`);
-            } catch {
-                errors.func = 'Function must be a valid function of x';
-            }
+        if (!number) {
+            errors.number = 'Number is required';
+        } else if (isNaN(number) || number < 0) {
+            errors.number = 'Number must be a non-negative integer';
         }
-
-        if (!lowerBound) {
-            errors.lowerBound = 'Lower bound is required';
-        } else if (isNaN(lowerBound)) {
-            errors.lowerBound = 'Lower bound must be a number';
-        }
-
-        if (!upperBound) {
-            errors.upperBound = 'Upper bound is required';
-        } else if (isNaN(upperBound)) {
-            errors.upperBound = 'Upper bound must be a number';
-        }
-
-        if (Number(lowerBound) >= Number(upperBound)) {
-            errors.bounds = 'Lower bound must be less than upper bound';
-        }
-
-        if (!points) {
-            errors.points = 'Points are required';
-        } else if (isNaN(points) || points > 1000000000 || points < 0) {
-            errors.points = 'Points must be a number between 1 and 1000000000';
-        }
-
         return errors;
     };
 
@@ -63,14 +33,13 @@ const MainPage = () => {
             return;
         }
         setErrors({});
-        const interval = `${lowerBound},${upperBound}`;
-        const response = await fetch('http://localhost:5000/integrate', {
+        const response = await fetch('http://localhost:5000/calculate_tribonacci', {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json', 
                 'Authorization': `Bearer ${auth.accessToken}`
             },
-            body: JSON.stringify({ function: func, interval, points })
+            body: JSON.stringify({ number: number })
         });
 
         const data = await response.json();
@@ -165,35 +134,19 @@ const MainPage = () => {
     return (
         <div className="main-page">
             <nav className="nav-container">
-                <button className={`nav-button ${currentTab === 'integrate' ? 'active' : ''}`} onClick={() => setCurrentTab('integrate')}>Integrate</button>
+                <button className={`nav-button ${currentTab === 'tribonacci' ? 'active' : ''}`} onClick={() => setCurrentTab('tribonacci')}>Calculate tribonacci</button>
                 {auth.isAdmin && <button className={`nav-button ${currentTab === 'admin' ? 'active' : ''}`} onClick={() => setCurrentTab('admin')}>Admin Panel</button>}
             </nav>
             <h1>Welcome</h1>
             <div className="content-container">
-                {currentTab === 'integrate' && (
-                    <div className="integrate-section">
+                {currentTab === 'tribonacci' && (
+                    <div className="tribonacci-section">
                         <form onSubmit={handleSubmit} className={`main-form ${message ? 'has-error' : ''}`}>
-                            <h2>Function Integration</h2>
-                            <div className={`form-group ${errors.func ? 'error' : ''}`}>
-                                <label>Function:</label>
-                                <input type="text" value={func} onChange={(e) => setFunc(e.target.value)} />
-                                {errors.func && <p className="error-text">{errors.func}</p>}
-                            </div>
-                            <div className={`form-group ${errors.lowerBound || errors.bounds ? 'error' : ''}`}>
-                                <label>Lower Bound:</label>
-                                <input type="text" value={lowerBound} onChange={(e) => setLowerBound(e.target.value)} />
-                                {errors.lowerBound && <p className="error-text">{errors.lowerBound}</p>}
-                            </div>
-                            <div className={`form-group ${errors.upperBound || errors.bounds ? 'error' : ''}`}>
-                                <label>Upper Bound:</label>
-                                <input type="text" value={upperBound} onChange={(e) => setUpperBound(e.target.value)} />
-                                {errors.upperBound && <p className="error-text">{errors.upperBound}</p>}
-                                {errors.bounds && <p className="error-text">{errors.bounds}</p>}
-                            </div>
-                            <div className={`form-group ${errors.points ? 'error' : ''}`}>
-                                <label>Points:</label>
-                                <input type="text" value={points} onChange={(e) => setPoints(e.target.value)} />
-                                {errors.points && <p className="error-text">{errors.points}</p>}
+                            <h2>Calculate Tribonacci</h2>
+                            <div className={`form-group ${errors.number ? 'error' : ''}`}>
+                                <label>Number:</label>
+                                <input type="text" value={number} onChange={(e) => setNumber(e.target.value)} />
+                                {errors.number && <p className="error-text">{errors.number}</p>}
                             </div>
                             <button type="submit">Submit</button>
                         </form>
@@ -204,9 +157,7 @@ const MainPage = () => {
                                 <thead>
                                     <tr>
                                         <th>ID</th>
-                                        <th>Function</th>
-                                        <th>Interval</th>
-                                        <th>Points</th>
+                                        <th>Number</th>
                                         <th>Status</th>
                                         <th>Progress</th>
                                         <th>Result</th>
@@ -218,9 +169,7 @@ const MainPage = () => {
                                     {tasks && tasks.map(task => (
                                         <tr key={task._id}>
                                             <td>{task._id}</td>
-                                            <td>{task.function}</td>
-                                            <td>{task.interval}</td>
-                                            <td>{task.points}</td>
+                                            <td>{task.number}</td>
                                             <td>
                                                 <span className={`status-bubble status-${task.status}`}>
                                                     {task.status}
@@ -273,9 +222,7 @@ const MainPage = () => {
                                     <tr>
                                         <th>ID</th>
                                         <th>User ID</th>
-                                        <th>Function</th>
-                                        <th>Interval</th>
-                                        <th>Points</th>
+                                        <th>Number</th>
                                         <th>Status</th>
                                         <th>Progress</th>
                                         <th>Result</th>
@@ -287,9 +234,7 @@ const MainPage = () => {
                                         <tr key={task._id}>
                                             <td>{task._id}</td>
                                             <td>{task.userId}</td>
-                                            <td>{task.function}</td>
-                                            <td>{task.interval}</td>
-                                            <td>{task.points}</td>
+                                            <td>{task.number}</td>
                                             <td>
                                                 <span className={`status-bubble status-${task.status}`}>
                                                     {task.status}

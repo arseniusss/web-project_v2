@@ -44,25 +44,8 @@ async function reassignAwaitingTasks(req) {
     }
 }
 
-app.get('/server-loads', authenticateToken, async (req, res) => {
-    const serverLoads = await Promise.all(servers.map(async (server) => {
-        try {
-            const response = await axios.get(`${server}/load`, {
-                headers: {
-                    'Authorization': req.headers.authorization
-                }
-            });
-            return { server, load: response.data };
-        } catch (error) {
-            console.error(`Error pinging server ${server}:`, error);
-            return { server, load: null };
-        }
-    }));
-    res.json(serverLoads);
-});
-
-app.post('/integrate', authenticateToken, async (req, res) => {
-    const { function: func, interval, points } = req.body;
+app.post('/calculate_tribonacci', authenticateToken, async (req, res) => {
+    const { number } = req.body;
     const userId = req.user.userId;
     const collection = getCollection();
 
@@ -82,9 +65,7 @@ app.post('/integrate', authenticateToken, async (req, res) => {
 
     const requestId = (await collection.insertOne({
         userId,
-        function: func,
-        interval,
-        points,
+        number,
         server,
         status: 'awaiting',
         createdAt: new Date(),
@@ -119,6 +100,23 @@ app.get('/all-tasks', authenticateToken, async (req, res) => {
     const collection = getCollection();
     const tasks = await collection.find({}).toArray();
     res.json(tasks);
+});
+
+app.get('/server-loads', authenticateToken, async (req, res) => {
+    const serverLoads = await Promise.all(servers.map(async (server) => {
+        try {
+            const response = await axios.get(`${server}/load`, {
+                headers: {
+                    'Authorization': req.headers.authorization
+                }
+            });
+            return { server, load: response.data };
+        } catch (error) {
+            console.error(`Error pinging server ${server}:`, error);
+            return { server, load: null };
+        }
+    }));
+    res.json(serverLoads);
 });
 
 app.use('/auth', authRouter);
