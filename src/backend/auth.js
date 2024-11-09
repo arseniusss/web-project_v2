@@ -32,7 +32,7 @@ authRouter.post('/login', async (req, res) => {
         return res.status(401).send('Invalid credentials');
     }
 
-    const accessToken = jwt.sign({ userId: user._id, username, isAdmin: user.isAdmin }, SECRET_KEY, { expiresIn: '1m' });
+    const accessToken = jwt.sign({ userId: user._id, username, isAdmin: user.isAdmin }, SECRET_KEY, { expiresIn: '15m' });
     const refreshToken = jwt.sign({ userId: user._id, username, isAdmin: user.isAdmin }, SECRET_KEY, { expiresIn: '7d' });
     
     res.json({ accessToken, refreshToken, isAdmin: user.isAdmin });
@@ -45,7 +45,7 @@ authRouter.post('/token', (req, res) => {
     jwt.verify(token, SECRET_KEY, (err, user) => {
         if (err) return res.sendStatus(403);
 
-        const accessToken = jwt.sign({ userId: user.userId, username: user.username, isAdmin: user.isAdmin }, SECRET_KEY, { expiresIn: '1m' });
+        const accessToken = jwt.sign({ userId: user.userId, username: user.username, isAdmin: user.isAdmin }, SECRET_KEY, { expiresIn: '15m' });
         res.json({ accessToken });
     });
 });

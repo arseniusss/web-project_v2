@@ -11,6 +11,7 @@ let hasActiveTask = false;
 
 app.get('/load', authenticateToken, async (req, res) => {
     try {
+        let serverUrl = `http://127.0.0.1:${port}`;
         let collection = await getTasksCollection();
         const tasks = await collection.find({ 
             server: serverUrl, 
@@ -43,7 +44,6 @@ async function pickAssignedTasks() {
     );
 
     if (!task.value) {
-        console.log('No tasks value');
         setTimeout(() => pickAssignedTasks(), CHECK_INTERVAL);
         return;
     }

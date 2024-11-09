@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+const BACKEND_SERVER_URL = 'http://localhost:5000';
+
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -13,7 +15,7 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (username, password) => {
         try {
-            const { data } = await axios.post('http://localhost:5000/auth/login', { username, password });
+            const { data } = await axios.post(`${BACKEND_SERVER_URL}/auth/login`, { username, password });
             setAuth({ accessToken: data.accessToken, refreshToken: data.refreshToken, isAdmin: data.isAdmin });
             setIsAuthenticated(true);
             localStorage.setItem('accessToken', data.accessToken);
@@ -26,7 +28,7 @@ export const AuthProvider = ({ children }) => {
 
     const signup = async (username, password, isAdmin) => {
         try {
-            await axios.post('http://localhost:5000/auth/signup', { username, password, isAdmin });
+            await axios.post(`${BACKEND_SERVER_URL}/auth/signup`, { username, password, isAdmin });
         } catch (error) {
             console.error('Signup failed', error);
             throw error;
@@ -42,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
     const refreshAccessToken = async () => {
         try {
-            const { data } = await axios.post('http://localhost:5000/auth/token', { token: auth.refreshToken });
+            const { data } = await axios.post(`${BACKEND_SERVER_URL}/auth/token`, { token: auth.refreshToken });
             setAuth(prevAuth => ({ ...prevAuth, accessToken: data.accessToken }));
             localStorage.setItem('accessToken', data.accessToken);
         } catch (error) {
@@ -51,12 +53,14 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const REFRESH_INTERVAL = 0.9 * 60* 15 * 1000;
+    
     useEffect(() => {
         const interval = setInterval(() => {
             if (auth.refreshToken) {
                 refreshAccessToken();
             }
-        }, 0.9 * 60 * 1000);
+        }, REFRESH_INTERVAL);
         return () => clearInterval(interval);
     }, [auth.refreshToken]);
 
